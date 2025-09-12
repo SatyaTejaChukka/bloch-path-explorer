@@ -1,5 +1,0 @@
-# List of dependencies for the Bloch Path Explorer
-flask
-qiskit
-qiskit-aer
-flask-cors
