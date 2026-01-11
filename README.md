@@ -124,8 +124,8 @@ multi-qubit-bloch-explorer/
 
 ### 1. Clone the Repo
 ```bash
-git clone https://github.com/your-username/multi-qubit-bloch-explorer.git
-cd multi-qubit-bloch-explorer
+git clone http://github.com/SatyaTejaChukka/bloch-path-explorer
+cd bloch-path-explorer
 ```
 
 ### 2. Backend Setup
@@ -203,8 +203,6 @@ docker-compose up --build
 
 ---
 
-## 📜 License
-MIT License © 2025 [Your Name]  
 
 ---
 
