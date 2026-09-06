@@ -1,9 +1,17 @@
 // frontend/src/services/api.js
 import { simulateCircuitClient, simulateQasmClient } from './quantumEngine';
 
-// Environment variable or default backend URL
-const DEFAULT_API_URL = 'http://localhost:5000/api';
-const API_BASE_URL = (import.meta.env && import.meta.env.VITE_API_URL) ? import.meta.env.VITE_API_URL : DEFAULT_API_URL;
+// Environment variable or default backend URL with auto-normalization
+const getBaseUrl = () => {
+  const rawUrl = (import.meta.env && import.meta.env.VITE_API_URL) ? import.meta.env.VITE_API_URL : 'http://localhost:5000/api';
+  let cleanUrl = rawUrl.trim().replace(/\/+$/, ''); // Strip trailing slashes
+  if (!cleanUrl.endsWith('/api')) {
+    cleanUrl += '/api';
+  }
+  return cleanUrl;
+};
+
+const API_BASE_URL = getBaseUrl();
 
 const handleResponse = async (response) => {
   if (!response.ok) {
