@@ -11,6 +11,7 @@ function Controls({
   playbackSpeed,
   setPlaybackSpeed,
   currentStep,
+  onStepChange,
   maxStep = 0,
   currentGateLabel = '',
   loopAnimation,
@@ -36,14 +37,14 @@ function Controls({
           className="timeline-slider"
           min="0"
           max={maxStep}
+          step="1"
           value={currentStep}
           onChange={(e) => {
-            const step = parseInt(e.target.value, 10);
-            if (resetSimulation && step === 0) {
-              resetSimulation();
-            } else if (stepForward) {
-              // Custom jump if handler available
-              window.__jumpToStep && window.__jumpToStep(step);
+            const val = parseInt(e.target.value, 10);
+            if (onStepChange) {
+              onStepChange(val);
+            } else if (window.__jumpToStep) {
+              window.__jumpToStep(val);
             }
           }}
         />

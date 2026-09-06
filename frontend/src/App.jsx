@@ -13,7 +13,7 @@ function App() {
   const [engineMode, setEngineMode] = useState('client'); // 'client' | 'backend'
   const [backendHealth, setBackendHealth] = useState('checking'); // 'online' | 'offline' | 'checking'
 
-  // Default initial simulation (Bell State on 2 qubits) so the 3D visualizer has immediate data
+  // Default initial simulation (Bell State on 2 qubits)
   const initialSimulation = useMemo(() => {
     return simulateCircuitClient([
       { name: 'H', qubit: 0, time: 0 },
@@ -24,15 +24,14 @@ function App() {
   const [simulationTimeline, setSimulationTimeline] = useState(initialSimulation.simulation_timeline);
   const [numQubits, setNumQubits] = useState(2);
 
-  // Playback controls state
+  // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [loopAnimation, setLoopAnimation] = useState(false);
 
-  // Animation frame ref
-  const animationFrameRef = useRef(null);
-  const lastUpdateTimeRef = useRef(0);
+  const playbackTimerRef = useRef(null);
+  const maxStep = Math.max(0, (simulationTimeline?.length || 1) - 1);
 
   // Check remote backend health on mount
   useEffect(() => {
@@ -59,12 +58,13 @@ function App() {
   useEffect(() => {
     window.__jumpToStep = (step) => {
       setIsPlaying(false);
-      setCurrentStep(Math.max(0, Math.min(step, (simulationTimeline?.length || 1) - 1)));
+      const clamped = Math.max(0, Math.min(step, maxStep));
+      setCurrentStep(clamped);
     };
     return () => {
       delete window.__jumpToStep;
     };
-  }, [simulationTimeline]);
+  }, [maxStep]);
 
   // Derived state for current step
   const currentSnapshot = useMemo(() => {
@@ -89,7 +89,7 @@ function App() {
       setSimulationTimeline(results.simulation_timeline);
       setNumQubits(results.num_qubits || 2);
       setCurrentStep(0);
-      setIsPlaying(true); // Auto-play the evolution
+      setIsPlaying(true);
       setActiveTab('Bloch Spheres');
     }
   };
@@ -98,18 +98,20 @@ function App() {
     setIsPlaying((prev) => !prev);
   };
 
-  const stepForward = () => {
-    if (simulationTimeline && currentStep < simulationTimeline.length - 1) {
-      setCurrentStep((prev) => prev + 1);
-    }
+  const handleStepChange = (step) => {
     setIsPlaying(false);
+    const clamped = Math.max(0, Math.min(step, maxStep));
+    setCurrentStep(clamped);
+  };
+
+  const stepForward = () => {
+    setIsPlaying(false);
+    setCurrentStep((prev) => Math.min(maxStep, prev + 1));
   };
 
   const stepBackward = () => {
-    if (currentStep > 0) {
-      setCurrentStep((prev) => prev - 1);
-    }
     setIsPlaying(false);
+    setCurrentStep((prev) => Math.max(0, prev - 1));
   };
 
   const resetSimulation = () => {
@@ -119,50 +121,41 @@ function App() {
 
   const jumpToEnd = () => {
     setIsPlaying(false);
-    if (simulationTimeline) {
-      setCurrentStep(simulationTimeline.length - 1);
-    }
+    setCurrentStep(maxStep);
   };
 
-  // Playback animation loop
+  // High-precision playback step timer (allows 60 FPS WebGL loop in BlochSphere to smoothly glide between steps)
   useEffect(() => {
-    const animate = (time) => {
-      if (!isPlaying || !simulationTimeline || simulationTimeline.length === 0) {
-        animationFrameRef.current = null;
-        return;
-      }
-
-      const deltaTime = time - lastUpdateTimeRef.current;
-      const stepDuration = 1200 / playbackSpeed;
-
-      if (deltaTime >= stepDuration) {
-        lastUpdateTimeRef.current = time;
-        setCurrentStep((prevStep) => {
-          const nextStep = prevStep + 1;
-          if (nextStep < simulationTimeline.length) {
-            return nextStep;
-          } else {
-            if (loopAnimation) {
-              return 0; // Loop back to start
-            } else {
-              setIsPlaying(false);
-              return prevStep;
-            }
-          }
-        });
-      }
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
-
-    if (isPlaying) {
-      lastUpdateTimeRef.current = performance.now();
-      animationFrameRef.current = requestAnimationFrame(animate);
-    } else {
-      cancelAnimationFrame(animationFrameRef.current);
+    if (playbackTimerRef.current) {
+      clearInterval(playbackTimerRef.current);
+      playbackTimerRef.current = null;
     }
 
-    return () => cancelAnimationFrame(animationFrameRef.current);
-  }, [isPlaying, simulationTimeline, playbackSpeed, loopAnimation]);
+    if (isPlaying && simulationTimeline && simulationTimeline.length > 1) {
+      const stepDuration = 1400 / playbackSpeed;
+
+      playbackTimerRef.current = setInterval(() => {
+        setCurrentStep((prev) => {
+          const next = prev + 1;
+          if (next > maxStep) {
+            if (loopAnimation) {
+              return 0; // Seamless loop
+            } else {
+              setIsPlaying(false);
+              return maxStep;
+            }
+          }
+          return next;
+        });
+      }, stepDuration);
+    }
+
+    return () => {
+      if (playbackTimerRef.current) {
+        clearInterval(playbackTimerRef.current);
+      }
+    };
+  }, [isPlaying, simulationTimeline, maxStep, playbackSpeed, loopAnimation]);
 
   const toggleEngine = () => {
     setEngineMode((prev) => (prev === 'client' ? 'backend' : 'client'));
@@ -247,8 +240,9 @@ function App() {
                   jumpToEnd={jumpToEnd}
                   playbackSpeed={playbackSpeed}
                   setPlaybackSpeed={setPlaybackSpeed}
-                  maxStep={simulationTimeline.length - 1}
+                  maxStep={maxStep}
                   currentStep={currentStep}
+                  onStepChange={handleStepChange}
                   currentGateLabel={currentGateLabel}
                   loopAnimation={loopAnimation}
                   toggleLoop={() => setLoopAnimation((prev) => !prev)}
@@ -260,6 +254,7 @@ function App() {
                       key={state.qubit}
                       qubitState={state}
                       currentStep={currentStep}
+                      playbackSpeed={playbackSpeed}
                       simulationTimeline={simulationTimeline}
                     />
                   ))}
