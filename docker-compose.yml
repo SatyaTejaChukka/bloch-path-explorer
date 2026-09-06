@@ -10,7 +10,7 @@ services:
     volumes:
       - ./backend/app:/app # Mount for development, remove in production
     environment:
-      FLASK_ENV: development
+      ENVIRONMENT: development
 
   frontend:
     build:

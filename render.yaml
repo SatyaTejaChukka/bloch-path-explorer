@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: bloch-explorer-backend
+    env: python
+    rootDir: backend/app
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12

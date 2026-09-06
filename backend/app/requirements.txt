@@ -1,2 +1,7 @@
-Flask
-Qiskit
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+pydantic>=2.0.0
+qiskit>=1.0.0
+qiskit-aer>=0.14.0
+numpy>=1.23.0
+scipy>=1.9.0

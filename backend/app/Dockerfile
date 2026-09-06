@@ -1,17 +1,24 @@
-# Use an official Python runtime as a parent image
-FROM python:3.9-slim-buster
+# Use an official Python runtime as parent image
+FROM python:3.10-slim
 
-# Set the working directory in the container
+# Set working directory
 WORKDIR /app
 
-# Copy the current directory contents into the container at /app
-COPY . /app
+# Install system build dependencies if needed
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install any needed packages specified in requirements.txt
+# Install python dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Make port 5000 available to the world outside this container
+# Copy application code
+COPY . .
+
+# Expose port
 EXPOSE 5000
 
-# Run the application
-CMD ["python", "main.py"]
+# Run FastAPI with Uvicorn
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5000", "--workers", "1"]

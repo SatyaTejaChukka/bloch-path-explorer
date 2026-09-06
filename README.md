@@ -1,212 +1,158 @@
-# 🌌 Multi-Qubit Bloch Sphere Explorer
+# 🌌 Bloch Path Explorer
 
-> A next-generation quantum visualization platform that simulates **multi-qubit quantum circuits** and projects each qubit’s reduced density matrix onto **interactive, animated 3D Bloch spheres**.  
-Built with **Flask + Qiskit (backend)** and **React + Three.js (frontend)**.
+> An interactive, high-precision quantum visualization platform that simulates **multi-qubit quantum circuits** and projects reduced density matrices onto **animated, interactive 3D Bloch spheres** with live entropy, purity, and entanglement metrics.
 
----
-
-## 📖 Project Overview
-
-This project is a **quantum circuit visualization tool** that:  
-1. Accepts multi-qubit quantum circuits in text or editor format.  
-2. Uses **Qiskit** to simulate the final quantum state.  
-3. Applies **partial tracing** to compute each qubit’s reduced density matrix.  
-4. Converts density matrices into **Bloch sphere coordinates**.  
-5. Renders interactive **3D Bloch spheres** (React + Three.js).  
-6. Provides **quantum metrics** (entropy, purity, fidelity, etc.).  
-
-The system is designed to help researchers, students, and engineers **see quantum states evolve in real time**.
+[![React](https://img.shields.io/badge/React-19.1-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![Three.js](https://img.shields.io/badge/Three.js-0.179-black?logo=three.js)](https://threejs.org/)
+[![Qiskit](https://img.shields.io/badge/Qiskit-1.0+-6929C4?logo=qiskit&logoColor=white)](https://qiskit.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
 
-## ⚡ Core Features
+## 📖 Highlights & Capabilities
 
-- 🧮 **Circuit Simulation**
-  - Gate parsing: H, X, Y, Z, S, T, RX, RY, RZ, CNOT, SWAP
-  - Supports π notation (π, π/2, π/4, etc.)
-  - Example circuits: Bell state, GHZ state, etc.
-
-- 🔬 **Partial Tracing & Density Matrices**
-  - Convert statevector → density matrix → reduced density matrix
-  - Von Neumann entropy
-  - Fidelity & purity calculations
-
-- 🌐 **3D Visualization**
-  - One Bloch sphere per qubit
-  - Pure states → glowing surface point
-  - Mixed states → particle clouds & opacity regions
-  - Animated trails to show time evolution
-  - Interactive camera (zoom, rotate, pan)
-
-- 🎛️ **Modern UI**
-  - Dark neon theme with smooth transitions
-  - Gate buttons + text editor input
-  - Metrics panel with live updates
-  - Error handling and circuit validation
-
-- 🐳 **Deployment Ready**
-  - Full Docker setup
-  - Nginx reverse proxy
-  - Health-check endpoints
+- ⚛️ **High-Precision Quantum Simulation (Hybrid Engine)**:
+  - **In-Browser Engine (Default)**: Instant, zero-server statevector simulation for 1–5 qubits with **0ms latency, zero cold-starts, and 100% offline support**.
+  - **Remote Qiskit Backend**: Seamless 1-click toggle to connect to a Python/Qiskit server for advanced hardware-level execution.
+- 🌐 **Interactive 3D Bloch Spheres**:
+  - Rendered with Three.js & React Three Fiber.
+  - Labeled quantum poles: $|0\rangle, |1\rangle, |+\rangle, |-\rangle, |+i\rangle, |-i\rangle$.
+  - 3D coordinate axes and Great Circles.
+  - **Pure states** sit on the sphere surface ($|\vec{r}| = 1$); **entangled/mixed states** move inside the sphere ($|\vec{r}| < 1$) with dynamic interior density indicators.
+  - Trajectory trails trace quantum state evolution over time.
+- 🎛️ **Modern Quantum Circuit Designer**:
+  - Drag-and-drop & click-to-place gate palette ($H, X, Y, Z, S, T, RX, RY, RZ, CNOT, CZ, SWAP$).
+  - Arbitrary control & target selection for multi-qubit gates.
+  - Dual-mode: Visual Circuit Canvas + Live **OpenQASM 2.0** Code Editor.
+  - 1-click presets: *Bell State ($|\Phi^+\rangle$)*, *3-Qubit GHZ State*, *Bloch Rotations*, *Superdense Coding*, *Teleportation Prep*.
+- 📊 **Real-Time Quantum Metrics Dashboard**:
+  - Entanglement detection (identifying inseparable states).
+  - Computational basis probability distribution histograms ($P(|00\rangle), P(|01\rangle), \dots$).
+  - Per-qubit Von Neumann entropy, purity ($\text{Tr}(\rho^2)$), and Bloch coordinate breakdowns.
+- ⏯️ **Playback Timeline & Scrubber**:
+  - Play, pause, step forward, step backward, scrubber slider, variable speed (0.5x–2x), and auto-looping.
 
 ---
 
-## 📂 Repository Structure
+## 🚀 Free Deployment Guide
 
-```
-multi-qubit-bloch-explorer/
-├── backend/                # Flask + Qiskit backend
-│   ├── app/
-│   │   ├── main.py         # Flask API server
-│   │   ├── requirements.txt
-│   │   ├── Dockerfile
-│   │   └── sim/
-│   │       ├── qiskit_sim.py
-│   │       ├── partial_trace.py
-│   │       └── utils.py
-│
-└── frontend/               # React + Three.js frontend
-    ├── src/
-    │   ├── App.jsx
-    │   ├── App.css
-    │   ├── main.jsx
-    │   ├── components/
-    │   │   ├── CircuitEditor.jsx
-    │   │   ├── BlochSphere.jsx
-    │   │   ├── Controls.jsx
-    │   │   └── MetricsPanel.jsx
-    │   └── services/api.js
-    ├── package.json
-    ├── vite.config.js
-    └── index.html
-```
+### Option 1: Frontend Static Hosting (100% Free Forever) — *Recommended*
 
----
+Because the project includes an in-browser quantum engine, the frontend can be deployed completely free without paying for any backend servers!
 
-## 🛠️ Backend API Specification
+#### Deploy to Vercel
+1. Push your repository to GitHub.
+2. Go to [Vercel](https://vercel.com/) and click **"Add New Project"**.
+3. Import your GitHub repository.
+4. Set **Root Directory** to `frontend`.
+5. Build settings will automatically detect Vite:
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+6. Click **Deploy**. Your site will be live on a global CDN with free SSL!
 
-### Endpoints
-- `POST /api/simulate` → Simulate quantum circuit string  
-- `POST /api/execute-qiskit` → Run raw Qiskit code  
-- `GET /api/health` → Health check  
+#### Deploy to Netlify
+1. Go to [Netlify](https://www.netlify.com/) and click **"Add new site" > "Import an existing project"**.
+2. Select your GitHub repository.
+3. Set:
+   - **Base directory**: `frontend`
+   - **Build command**: `npm run build`
+   - **Publish directory**: `frontend/dist`
+4. Click **Deploy**.
 
-### Key Functions
-- **Density Matrix → Bloch Coordinates**
-- **Von Neumann Entropy Calculation**
-- **Partial Tracing for Reduced Density Matrices**
-- **Circuit String Parser**
+#### Deploy to Cloudflare Pages
+1. Go to Cloudflare Dashboard > **Workers & Pages** > **Create application** > **Pages**.
+2. Connect your GitHub repository.
+3. Set **Framework preset** to `Vite`, root directory to `frontend`, output directory to `dist`.
+4. Click **Save and Deploy**.
 
 ---
 
-## 🎨 Frontend Components
+### Option 2: Full-Stack (Backend + Frontend)
 
-- **CircuitEditor.jsx**
-  - Circuit builder with gate buttons
-  - Text input for custom circuits
-  - Example circuit presets
+If you also wish to deploy the Python FastAPI + Qiskit backend:
 
-- **BlochSphere.jsx**
-  - Renders interactive Bloch spheres
-  - Supports pure and mixed states
-  - Animated trails for state evolution
+#### Deploy Backend to Render (Free Web Service)
+1. Go to [Render](https://render.com/) and create a free account.
+2. Click **New > Web Service** and connect this repository.
+3. Render will auto-detect the root `render.yaml` blueprint, or configure manually:
+   - **Root Directory**: `backend/app`
+   - **Environment**: `Python 3`
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT --workers 2`
+   - **Plan**: `Free`
+4. Once deployed, copy your Render URL (e.g. `https://bloch-explorer-backend.onrender.com`).
+5. In your frontend deployment (Vercel/Netlify), add an environment variable:
+   ```env
+   VITE_API_URL=https://bloch-explorer-backend.onrender.com/api
+   ```
 
-- **Controls.jsx**
-  - Play, pause, reset animation
-  - Step-through navigation
-  - Speed control
-
-- **MetricsPanel.jsx**
-  - Displays entropy, purity, fidelity, entanglement
+#### Deploy Backend to Hugging Face Spaces (Free Tier)
+1. Create a new Space on [Hugging Face Spaces](https://huggingface.co/spaces).
+2. Choose **Docker** as the SDK.
+3. Push the contents of `backend/app/` to the Space.
+4. Use the generated Space URL as your `VITE_API_URL`.
 
 ---
 
-## 🔧 Installation & Setup
+## 💻 Local Development
 
-### 1. Clone the Repo
-```bash
-git clone http://github.com/SatyaTejaChukka/bloch-path-explorer
-cd bloch-path-explorer
-```
+### 1. Prerequisites
+- Node.js (v18+)
+- Python 3.9+ (optional, only needed for local Qiskit backend)
 
-### 2. Backend Setup
-```bash
-cd backend/app
-python -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-python main.py
-```
-Runs at: **http://localhost:5000**
-
-### 3. Frontend Setup
+### 2. Frontend Setup
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-Runs at: **http://localhost:5173**
+Open **http://localhost:5173** in your browser. The app runs immediately using the built-in browser quantum engine!
 
-### 4. Docker Setup
+### 3. Backend Setup (Optional)
+```bash
+cd backend/app
+python -m venv venv
+# Windows:
+venv\Scripts\activate
+# Linux/macOS:
+source venv/bin/activate
+
+pip install -r requirements.txt
+python main.py
+```
+Backend runs at: **http://localhost:5000**
+
+### 4. Docker Compose
+To run both backend and frontend together locally:
 ```bash
 docker-compose up --build
 ```
-- Frontend → http://localhost  
-- Backend API → http://localhost/api  
+- Frontend: `http://localhost`
+- Backend: `http://localhost/api`
 
 ---
 
-## 🧪 Testing
+## 📐 Mathematical Foundations
 
-### Unit Tests
-- Circuit parsing
-- Partial tracing
-- Density matrix math
+### Single Qubit Bloch Representation
+Any single-qubit density matrix $\rho$ can be expressed in terms of Pauli matrices $\vec{\sigma} = (\sigma_x, \sigma_y, \sigma_z)$:
+$$\rho = \frac{1}{2} \left( I + \vec{r} \cdot \vec{\sigma} \right)$$
+Where the Bloch vector components are given by Pauli expectation values:
+$$x = \text{Tr}(\rho \sigma_x) = 2 \text{Re}(\rho_{01})$$
+$$y = \text{Tr}(\rho \sigma_y) = -2 \text{Im}(\rho_{01})$$
+$$z = \text{Tr}(\rho \sigma_z) = \rho_{00} - \rho_{11}$$
 
-### Integration Tests
-- End-to-end simulation
-- Error handling
-- Performance on multi-qubit circuits
+### Partial Trace for Multi-Qubit Systems
+For an $N$-qubit state $|\psi\rangle$, the reduced density matrix of qubit $A$ is obtained by tracing out all other qubits $B$:
+$$\rho_A = \text{Tr}_B(|\psi\rangle\langle\psi|)$$
 
-### Example Test Cases
-```javascript
-// Bell state: H0 CNOT(0,1)
-// Expect both qubits mixed, entropy > 0
-
-// Single qubit: H0
-// Expect qubit 0 pure at (1,0,0)
-
-// Rotation: RY(0,π/2)
-// Expect qubit moves from Z axis → Y axis
-```
+### Purity & Von Neumann Entropy
+- **Purity**: $\gamma = \text{Tr}(\rho_A^2) = \frac{1 + |\vec{r}|^2}{2} \in [0.5, 1.0]$
+- **Von Neumann Entropy**: $S(\rho_A) = -\text{Tr}(\rho_A \log_2 \rho_A)$
+  - Pure unentangled state: $S = 0$, $|\vec{r}| = 1$
+  - Maximally entangled state (e.g. Bell pair): $S = 1.0$, $|\vec{r}| = 0$
 
 ---
 
-## 📊 Example Circuits
-
-| Circuit String  | Description   | Expected Bloch Sphere Result |
-|-----------------|--------------|------------------------------|
-| `H0`           | Hadamard      | Qubit 0 on X-axis           |
-| `H0 CNOT(0,1)` | Bell state    | Both qubits mixed           |
-| `RY(0,π/2)`    | Rotation      | Moves from Z → Y axis       |
-
----
-
-## ✅ Success Criteria
-
-1. Correctly simulate **multi-qubit circuits**
-2. Compute **reduced density matrices**
-3. Visualize **pure & mixed states** on Bloch spheres
-4. Show **metrics**: entropy, fidelity, purity
-5. Smooth animations & modern UI
-6. Robust error handling
-7. Dockerized for deployment
-
----
-
-
----
-
-## 🌟 Acknowledgements
-- [Qiskit](https://qiskit.org/)  
-- [React Three Fiber](https://docs.pmnd.rs/react-three-fiber)  
-- [Framer Motion](https://www.framer.com/motion/)  
+## 📄 License
+This project is open-source under the [MIT License](LICENSE).
