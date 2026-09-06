@@ -1,44 +1,97 @@
+// frontend/src/App.jsx
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import './App.css'; // Global dark theme
+import './App.css';
 import CircuitEditor from './components/CircuitEditor';
 import BlochSphere from './components/BlochSphere';
 import MetricsPanel from './components/MetricsPanel';
 import Controls from './components/Controls';
+import { simulateCircuitClient } from './services/quantumEngine';
+import { getHealth } from './services/api';
 
 function App() {
-  console.log('App component is rendering');
-  const [activeTab, setActiveTab] = useState('Circuit Editor'); // State for active tab
-  const [simulationTimeline, setSimulationTimeline] = useState(null); // Stores the full timeline from backend
-  const [numQubits, setNumQubits] = useState(0); // Number of qubits from simulation
+  const [activeTab, setActiveTab] = useState('Circuit Editor');
+  const [engineMode, setEngineMode] = useState('client'); // 'client' | 'backend'
+  const [backendHealth, setBackendHealth] = useState('checking'); // 'online' | 'offline' | 'checking'
+
+  // Default initial simulation (Bell State on 2 qubits) so the 3D visualizer has immediate data
+  const initialSimulation = useMemo(() => {
+    return simulateCircuitClient([
+      { name: 'H', qubit: 0, time: 0 },
+      { name: 'CNOT', qubit: 0, target: 1, time: 1 }
+    ], 2);
+  }, []);
+
+  const [simulationTimeline, setSimulationTimeline] = useState(initialSimulation.simulation_timeline);
+  const [numQubits, setNumQubits] = useState(2);
 
   // Playback controls state
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [resetTrigger, setResetTrigger] = useState(false);
+  const [loopAnimation, setLoopAnimation] = useState(false);
 
-  // Ref for animation frame to control playback
+  // Animation frame ref
   const animationFrameRef = useRef(null);
   const lastUpdateTimeRef = useRef(0);
 
-  // Derived state for current step's data
-  const currentBlochSpheresData = useMemo(() => {
-    if (!simulationTimeline || simulationTimeline.length === 0) return [];
-    return simulationTimeline[currentStep]?.bloch_spheres || [];
+  // Check remote backend health on mount
+  useEffect(() => {
+    let isMounted = true;
+    getHealth()
+      .then((res) => {
+        if (isMounted) {
+          if (res.status === 'healthy') {
+            setBackendHealth('online');
+          } else {
+            setBackendHealth('offline');
+          }
+        }
+      })
+      .catch(() => {
+        if (isMounted) setBackendHealth('offline');
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Expose step scrubber jumping
+  useEffect(() => {
+    window.__jumpToStep = (step) => {
+      setIsPlaying(false);
+      setCurrentStep(Math.max(0, Math.min(step, (simulationTimeline?.length || 1) - 1)));
+    };
+    return () => {
+      delete window.__jumpToStep;
+    };
+  }, [simulationTimeline]);
+
+  // Derived state for current step
+  const currentSnapshot = useMemo(() => {
+    if (!simulationTimeline || simulationTimeline.length === 0) return null;
+    return simulationTimeline[currentStep] || simulationTimeline[0];
   }, [simulationTimeline, currentStep]);
+
+  const currentBlochSpheresData = useMemo(() => {
+    return currentSnapshot?.bloch_spheres || [];
+  }, [currentSnapshot]);
 
   const currentMetrics = useMemo(() => {
-    if (!simulationTimeline || simulationTimeline.length === 0) return null;
-    return simulationTimeline[currentStep]?.metrics || null;
-  }, [simulationTimeline, currentStep]);
+    return currentSnapshot?.metrics || null;
+  }, [currentSnapshot]);
+
+  const currentGateLabel = useMemo(() => {
+    return currentSnapshot?.gateLabel || (currentStep === 0 ? 'Initial State |0...0⟩' : `Step ${currentStep}`);
+  }, [currentSnapshot, currentStep]);
 
   const handleSimulationResults = (results) => {
-    setSimulationTimeline(results.simulation_timeline);
-    setNumQubits(results.num_qubits);
-    setActiveTab('Bloch Spheres'); // Switch to Bloch Spheres tab after simulation
-    setIsPlaying(false); // Pause animation after new simulation
-    setCurrentStep(0); // Reset step
-    setResetTrigger(true); // Trigger reset in BlochSphere
+    if (results.simulation_timeline && results.simulation_timeline.length > 0) {
+      setSimulationTimeline(results.simulation_timeline);
+      setNumQubits(results.num_qubits || 2);
+      setCurrentStep(0);
+      setIsPlaying(true); // Auto-play the evolution
+      setActiveTab('Bloch Spheres');
+    }
   };
 
   const togglePlayPause = () => {
@@ -49,22 +102,27 @@ function App() {
     if (simulationTimeline && currentStep < simulationTimeline.length - 1) {
       setCurrentStep((prev) => prev + 1);
     }
-    setIsPlaying(false); // Pause after stepping
+    setIsPlaying(false);
+  };
+
+  const stepBackward = () => {
+    if (currentStep > 0) {
+      setCurrentStep((prev) => prev - 1);
+    }
+    setIsPlaying(false);
   };
 
   const resetSimulation = () => {
     setIsPlaying(false);
     setCurrentStep(0);
-    setResetTrigger(true); // Trigger reset in BlochSphere
   };
 
-  // Effect to reset resetTrigger after it's been used by BlochSphere
-  useEffect(() => {
-    if (resetTrigger) {
-      const timer = setTimeout(() => setResetTrigger(false), 100); // Small delay to ensure BlochSphere picks it up
-      return () => clearTimeout(timer);
+  const jumpToEnd = () => {
+    setIsPlaying(false);
+    if (simulationTimeline) {
+      setCurrentStep(simulationTimeline.length - 1);
     }
-  }, [resetTrigger]);
+  };
 
   // Playback animation loop
   useEffect(() => {
@@ -75,9 +133,7 @@ function App() {
       }
 
       const deltaTime = time - lastUpdateTimeRef.current;
-      // Advance step based on playback speed
-      // Assuming each step takes 1 second at 1x speed
-      const stepDuration = 1000 / playbackSpeed; 
+      const stepDuration = 1200 / playbackSpeed;
 
       if (deltaTime >= stepDuration) {
         lastUpdateTimeRef.current = time;
@@ -86,8 +142,12 @@ function App() {
           if (nextStep < simulationTimeline.length) {
             return nextStep;
           } else {
-            setIsPlaying(false); // Stop playing at the end
-            return prevStep; // Stay at the last step
+            if (loopAnimation) {
+              return 0; // Loop back to start
+            } else {
+              setIsPlaying(false);
+              return prevStep;
+            }
           }
         });
       }
@@ -95,101 +155,143 @@ function App() {
     };
 
     if (isPlaying) {
-      lastUpdateTimeRef.current = performance.now(); // Initialize last update time
+      lastUpdateTimeRef.current = performance.now();
       animationFrameRef.current = requestAnimationFrame(animate);
     } else {
       cancelAnimationFrame(animationFrameRef.current);
     }
 
     return () => cancelAnimationFrame(animationFrameRef.current);
-  }, [isPlaying, simulationTimeline, playbackSpeed]);
+  }, [isPlaying, simulationTimeline, playbackSpeed, loopAnimation]);
+
+  const toggleEngine = () => {
+    setEngineMode((prev) => (prev === 'client' ? 'backend' : 'client'));
+  };
 
   return (
     <div className="app-container">
+      {/* Top Cyber Navigation Bar */}
       <header className="app-header">
-        <div className="logo">Bloch Explorer</div>
+        <div className="logo-group">
+          <div className="logo-symbol">⚛</div>
+          <div>
+            <h1 className="logo-title">Bloch Path Explorer</h1>
+            <span className="logo-subtitle">Interactive 3D Multi-Qubit Visualizer</span>
+          </div>
+        </div>
+
+        {/* Navigation Tabs */}
         <nav className="nav-tabs">
-          <button 
-            className={activeTab === 'Circuit Editor' ? 'active' : ''} 
+          <button
+            className={activeTab === 'Circuit Editor' ? 'active' : ''}
             onClick={() => setActiveTab('Circuit Editor')}
           >
             Circuit Editor
           </button>
-          <button 
-            className={activeTab === 'Bloch Spheres' ? 'active' : ''} 
+          <button
+            className={activeTab === 'Bloch Spheres' ? 'active' : ''}
             onClick={() => setActiveTab('Bloch Spheres')}
           >
-            Bloch Spheres
+            3D Bloch Spheres
+            <span className="tab-qubit-badge">{numQubits}Q</span>
           </button>
-          <button 
-            className={activeTab === 'Metrics' ? 'active' : ''} 
+          <button
+            className={activeTab === 'Metrics' ? 'active' : ''}
             onClick={() => setActiveTab('Metrics')}
           >
-            Metrics
+            Quantum Metrics
           </button>
-          {/* <button 
-            className={activeTab === 'Docs' ? 'active' : ''} 
-            onClick={() => setActiveTab('Docs')}
-          >
-            Docs
-          </button> */}
         </nav>
-        {/* Theme toggle can go here */}
+
+        {/* Engine Mode Status Switch */}
+        <div className="header-status-area">
+          <button
+            className={`engine-badge-btn ${engineMode}`}
+            onClick={toggleEngine}
+            title={
+              engineMode === 'client'
+                ? 'Running with zero latency in browser engine. Click to switch to remote Qiskit API.'
+                : 'Calling remote Qiskit backend. Click to switch to browser engine.'
+            }
+          >
+            <span className={`status-dot ${engineMode === 'client' ? 'green' : (backendHealth === 'online' ? 'blue' : 'yellow')}`} />
+            <span className="engine-text">
+              {engineMode === 'client' ? 'Browser Engine' : `Qiskit API (${backendHealth})`}
+            </span>
+          </button>
+        </div>
       </header>
 
+      {/* Main View Area */}
       <main className="app-main-content">
         {activeTab === 'Circuit Editor' && (
-          <div className="tab-content">
-            <CircuitEditor onSimulate={handleSimulationResults} />
+          <div className="tab-pane">
+            <CircuitEditor
+              onSimulate={handleSimulationResults}
+              engineMode={engineMode}
+              onToggleEngine={toggleEngine}
+            />
           </div>
         )}
+
         {activeTab === 'Bloch Spheres' && (
-          <div className="tab-content">
+          <div className="tab-pane">
             {simulationTimeline && simulationTimeline.length > 0 ? (
               <>
-                <Controls 
+                <Controls
                   isPlaying={isPlaying}
                   togglePlayPause={togglePlayPause}
                   stepForward={stepForward}
+                  stepBackward={stepBackward}
                   resetSimulation={resetSimulation}
+                  jumpToEnd={jumpToEnd}
                   playbackSpeed={playbackSpeed}
                   setPlaybackSpeed={setPlaybackSpeed}
                   maxStep={simulationTimeline.length - 1}
                   currentStep={currentStep}
+                  currentGateLabel={currentGateLabel}
+                  loopAnimation={loopAnimation}
+                  toggleLoop={() => setLoopAnimation((prev) => !prev)}
                 />
+
                 <div className="bloch-spheres-grid">
                   {currentBlochSpheresData.map((state) => (
-                    <BlochSphere 
-                      key={state.qubit} 
+                    <BlochSphere
+                      key={state.qubit}
                       qubitState={state}
-                      isPlaying={isPlaying}
                       currentStep={currentStep}
-                      playbackSpeed={playbackSpeed}
-                      resetTrigger={resetTrigger}
-                      simulationTimeline={simulationTimeline} // Pass full timeline for trails
+                      simulationTimeline={simulationTimeline}
                     />
                   ))}
                 </div>
               </>
             ) : (
-              <p style={{ textAlign: 'center', color: 'var(--text-color)' }}>
-                No simulation data. Please go to 'Circuit Editor' to run a simulation.
-              </p>
+              <div className="empty-state-notice">
+                <p>No simulation data. Open the Circuit Editor to build and simulate a circuit.</p>
+              </div>
             )}
           </div>
         )}
+
         {activeTab === 'Metrics' && (
-          <div className="tab-content">
-            {currentMetrics ? (
-              <MetricsPanel metrics={currentMetrics} />
-            ) : (
-              <p style={{ textAlign: 'center', color: 'var(--text-color)' }}>
-                No metrics data. Please run a simulation first.
-              </p>
-            )}
+          <div className="tab-pane">
+            <MetricsPanel
+              metrics={currentMetrics}
+              blochSpheres={currentBlochSpheresData}
+              currentStep={currentStep}
+              currentGateLabel={currentGateLabel}
+            />
           </div>
         )}
       </main>
+
+      {/* Footer */}
+      <footer className="app-footer">
+        <span>Bloch Path Explorer • Quantum Statevector & Density Matrix Visualizer</span>
+        <span className="footer-links">
+          Powered by React 19, Three.js & Qiskit • 100% Free Web Deployment Ready
+        </span>
+      </footer>
     </div>
   );
 }
